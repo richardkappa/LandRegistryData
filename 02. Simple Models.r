@@ -20,6 +20,9 @@ landregistry <- landregistry[!(landregistry$Price>1000000),]
 #I want just sales from 2016
 sales2016 <- landregistry[ which(landregistry$Transfer_Year==2016), ]
 
+#Keep only the variables I want to use
+columns <- c('Price', 'Transfer_Month', 'Property_Type', 'Old_New', 'Town_City', 'District', 'County')
+Initialdata <- subset(sales2016,select=columns)
 
 # Create random 70% sample
 #Set the random seed
@@ -40,11 +43,21 @@ RMSE.baseline
 MAE.baseline <- mean(abs(best.guess-test$Price))
 MAE.baseline
 
-#Linear regression model
-lin.reg <- lm(Price ~ Old_New + Property_Type + Transfer_Month, data = training)
-summary(lin.reg)
+#Linear regression models, look at each factor individually and then combine into one big model with the best factors
+lin.reg.ON <- lm(Price ~ Old_New, data = training)
+lin.reg.TM <- lm(Price ~ Transfer_Month, data = training)
+lin.reg.PT <- lm(Price ~ Property_Type, data = training)
+lin.reg.Co <- lm(Price ~ County, data = training)
+summary(lin.reg.ON) #R squared 0.004647
+summary(lin.reg.TM) #R squared 0.0002047
+summary(lin.reg.PT) #R squared 0.09478
+summary(lin.reg.Co) #R squared (instance too small to run this)
 
-plot(lin.reg)
+lin.reg.ONPT <- lm(Price ~ Old_New + Property_Type, data = training)
+summary(lin.reg.ONPT) #R squared 0.09657
+
+lin.reg.ONPTTM <- lm(Price ~ Old_New + Property_Type + Transfer_Month, data = training)
+summary(lin.reg.ONPTTM) #R squared 
 
 #Test the model
 test.pred.lin <- predict(lin.reg,test)
