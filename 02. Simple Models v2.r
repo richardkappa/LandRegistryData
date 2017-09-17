@@ -69,20 +69,28 @@ best.guess <- mean(training$Price)
 RMSE.baseline <- sqrt(mean((best.guess-test$Price)^2))
 
 #Create a simple model
-GLM1 <- glm(Price ~ Property_Type+Old_New+Duration, data=training, family=poisson())
-GLM2 <- glm(Price ~ Property_Type+Old_New+Duration, data=training, family=gamma())
-summary(GLM1) 
+GLM1 <- glm(Price ~ Property_Type+Old_New, data=training, family=poisson())
+GLM2 <- glm(Price ~ Property_Type+Duration, data=training, family=poisson())
+GLM3 <- glm(Price ~ Old_New+Duration, data=training, family=poisson())
+GLM4 <- glm(Price ~ Property_Type+Old_New+Duration, data=training, family=poisson())
 
 #Test the glm on the test data
-GLM1.pred <- predict(GLM1, test)
+GLM1.pred <- predict(GLM1, test, type='response')
 RMSE.GLM1 <- sqrt(mean((GLM1.pred-test$Price)^2))
 
-GLM2.pred <- predict(GLM2, test)
+GLM2.pred <- predict(GLM2, test, type='response')
 RMSE.GLM2 <- sqrt(mean((GLM2.pred-test$Price)^2))
+
+GLM3.pred <- predict(GLM3, test, type='response')
+RMSE.GLM3 <- sqrt(mean((GLM3.pred-test$Price)^2))
+
+GLM4.pred <- predict(GLM4, test, type='response')
+RMSE.GLM4 <- sqrt(mean((GLM4.pred-test$Price)^2))
 
 RMSE.baseline
 RMSE.GLM1
 RMSE.GLM2
+RMSE.GLM3
+RMSE.GLM4
 
-#Given that none of these factors is continious a GLM probably not the best model type
-#Try a tree
+#A small improvement on the baseline, but not that much
