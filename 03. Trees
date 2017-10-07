@@ -1,0 +1,85 @@
+#packages needed
+install.packages(c("ggplot2", "readr", "dplyr", "rpart", "rpart.plot"))
+
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(rpart)
+library(rpart.plot)
+
+#Import the Land registry data
+inputdata <- "http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/pp-2016.txt"
+names <- c('Transaction_unique_identifier', 'Price', 'Date_of_Transfer', 'Postcode', 'Property_Type', 'Old_New', 'Duration', 'PAON', 'SAON', 'Street', 'Locality', 'Town_City', 'District', 'County', 'PPDCategory_Type', 'Record_Status_monthly_file_only')
+landregistry <- read_csv(inputdata, col_names=names)
+
+#Remove the hour and minutes from the date variable and create a month variable
+landregistry$Transfer_Date <- as.Date(as.POSIXct(landregistry$Date_of_Transfer,tz="", "%Y-%m-%d %H:%M"))
+landregistry$Transfer_Month <- as.Date(paste((format(landregistry$Transfer_Date, "%Y-%m")),"-01",sep=""))
+landregistry$Transfer_Year <- as.numeric(format(landregistry$Transfer_Date, "%Y"))
+
+#Remove rows where the value is over £1M, these will skew the model later
+landregistry <- landregistry[!(landregistry$Price>1000000),]
+
+#I want just sales from 2016
+sales2016 <- landregistry[ which(landregistry$Transfer_Year==2016), ]
+
+#Keep only the variables I want to use
+columns <- c('Price', 'Transfer_Month', 'Property_Type', 'Old_New', 'Duration', 'Town_City', 'District', 'County')
+Initialdata <- subset(sales2016,select=columns)
+
+# Create random 70% sample
+#Set the random seed
+set.seed(100)
+
+#Define the variable FiveHundredPlus
+sales2016$FiveHundredPlus <- ifelse(sales2016$Price<=500000, 1, 0)
+
+
+#Randomly pick 70% of the data
+index <- sample(1:nrow(Initialdata),size = 0.7*nrow(Initialdata)) 
+
+#Select the 70% subset, and the testing dataset (30%) and only keep the columns I want
+cols <- c("FiveHundredPlus", "Transfer_Month", "Property_Type", "Old_New", 'Duration', "County")
+training <- sales2016[index, cols]
+test <- sales2016 [-index, cols] 
+
+
+#Model 1, decision tree using default settings
+tree <- rpart(FiveHundredPlus ~ ., training, method = "class")
+
+#Models {2, 3}, decision tree, change the complexity control
+tree_2 <- rpart(FiveHundredPlus ~ ., training, method = "class",control = rpart.control(cp=0.00025))
+tree_3 <- rpart(FiveHundredPlus ~ ., training, method = "class",control = rpart.control(cp=0.00015))
+tree_4 <- rpart(FiveHundredPlus ~ ., training, method = "class",control = rpart.control(cp=0.0001))
+tree_5 <- rpart(FiveHundredPlus ~ ., training, method = "class",control = rpart.control(cp=0.00001))
+
+#Plot the tree
+rpart.plot(tree)
+rpart.plot(tree_2)
+rpart.plot(tree_3)
+rpart.plot(tree_4)
+rpart.plot(tree_5)
+
+#Make the predictions
+pred_t <- predict(tree, test, type = "class")
+pred_t2 <- predict(tree_2, test, type = "class")
+pred_t3 <- predict(tree_3, test, type = "class")
+pred_t4 <- predict(tree_4, test, type = "class")
+pred_t5 <- predict(tree_5, test, type = "class")
+
+# Construct confusion matricies
+conf_t <- table(test$FiveHundredPlus, pred_t)
+conf_t2 <- table(test$FiveHundredPlus, pred_t2)
+conf_t3 <- table(test$FiveHundredPlus, pred_t3)
+conf_t4 <- table(test$FiveHundredPlus, pred_t4)
+conf_t5 <- table(test$FiveHundredPlus, pred_t5)
+
+# Calculate the accuracy
+acc_t <- sum(diag(conf_t))/sum(conf_t)
+acc_t2 <- sum(diag(conf_t2))/sum(conf_t2)
+acc_t3 <- sum(diag(conf_t3))/sum(conf_t3)
+acc_t4 <- sum(diag(conf_t4))/sum(conf_t4)
+acc_t5 <- sum(diag(conf_t5))/sum(conf_t5)
+
+Acc <- c(acc_t, acc_t2, acc_t3, acc_t4, acc_t5)
+print(Acc)
