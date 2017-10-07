@@ -1,11 +1,12 @@
 #packages needed
-install.packages(c("ggplot2", "readr", "dplyr", "rpart", "rpart.plot"))
+install.packages(c("ggplot2", "readr", "dplyr", "rpart", "rpart.plot", "ROCR"))
 
 library(dplyr)
 library(ggplot2)
 library(readr)
 library(rpart)
 library(rpart.plot)
+library(ROCR)
 
 #Import the Land registry data
 inputdata <- "http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/pp-2016.txt"
@@ -82,4 +83,44 @@ acc_t4 <- sum(diag(conf_t4))/sum(conf_t4)
 acc_t5 <- sum(diag(conf_t5))/sum(conf_t5)
 
 Acc <- c(acc_t, acc_t2, acc_t3, acc_t4, acc_t5)
+
+#Calcuate probabilities
+pred_p_t_1 <- predict(tree, test, type = "prob")[,2]
+pred_p_t_2 <- predict(tree_2, test, type = "prob")[,2]
+pred_p_t_3 <- predict(tree_3, test, type = "prob")[,2]
+pred_p_t_4 <- predict(tree_4, test, type = "prob")[,2]
+pred_p_t_5 <- predict(tree_5, test, type = "prob")[,2]
+
+# Make prediction objects for the ROC curves
+predict_1 <- prediction(pred_p_t_1, test$FiveHundredPlus)
+predict_2 <- prediction(pred_p_t_2, test$FiveHundredPlus)
+predict_3 <- prediction(pred_p_t_3, test$FiveHundredPlus)
+predict_4 <- prediction(pred_p_t_4, test$FiveHundredPlus)
+predict_5 <- prediction(pred_p_t_5, test$FiveHundredPlus)
+
+#Calculate the performance
+perf_1 <- performance(predict_1, "tpr", "fpr")
+perf_2 <- performance(predict_2, "tpr", "fpr")
+perf_3 <- performance(predict_3, "tpr", "fpr")
+perf_4 <- performance(predict_4, "tpr", "fpr")
+perf_5 <- performance(predict_5, "tpr", "fpr")
+
+#Calculate the area under the curves
+auc_1 <- performance(predict_1,"auc")@y.values[[1]]
+auc_2 <- performance(predict_2,"auc")@y.values[[1]]
+auc_3 <- performance(predict_3,"auc")@y.values[[1]]
+auc_4 <- performance(predict_4,"auc")@y.values[[1]]
+auc_5 <- performance(predict_5,"auc")@y.values[[1]]
+
+AUC <- c(auc_1, auc_2, auc_3, auc_4, auc_5)
+
+#Plot the ROC curve
+plot(perf_1)
+plot(perf_2, add = TRUE, colorize = TRUE)
+plot(perf_3, add = TRUE, colorize = TRUE)
+plot(perf_4, add = TRUE, colorize = TRUE)
+plot(perf_5, add = TRUE, colorize = TRUE)
+
+#Print the different performance metric vectors
 print(Acc)
+print(AUC)
