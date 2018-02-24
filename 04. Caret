@@ -1,12 +1,12 @@
-#Now lets try some other packages from https://www.r-bloggers.com/a-brief-tour-of-the-trees-and-forests/
-
 #packages needed
-install.packages(c("RANN", "caret", "readr"))
+install.packages(c("RANN", "caret", "readr", "e1071", "randomForest"))
 install.packages("caret", dependencies = c("Depends", "Suggests"))
 
 library(caret)
 library(RANN)
 library(readr)
+#library(e1071)
+#library(randomForest)
 
 #Import the Land registry data
 inputdata <- "http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/pp-2016.txt"
@@ -27,7 +27,7 @@ sales2016 <- landregistry[ which(landregistry$Transfer_Year==2016), ]
 #Keep only the variables I want to use
 columns <- c('Price', 'Transfer_Month', 'Property_Type', 'Old_New', 'Duration', 'Town_City', 'District', 'County')
 Initialdata <- subset(sales2016,select=columns)
-Initialdata <- Initialdata[1:50000,]
+#Initialdata <- Initialdata[1:50000,]
 
 #Define the variable FiveHundredPlus
 Initialdata$FiveHundredPlus <- ifelse(Initialdata$Price<=500000, 1, 0)
@@ -60,3 +60,12 @@ predictors<-names(trainSet)[!names(trainSet) %in% outcomeName]
 FiveHundredPlus_Profile <- rfe(trainSet[,predictors], trainSet[,outcomeName],
                                rfeControl = control)
 FiveHundredPlus_Profile
+
+#keep only the top 5 predictors
+predictors<-c()
+
+#Apply a selection of differnt models
+model_gbm<-train(trainSet[,predictors],trainSet[,outcomeName],method='gbm')
+model_rf<-train(trainSet[,predictors],trainSet[,outcomeName],method='rf')
+model_nnet<-train(trainSet[,predictors],trainSet[,outcomeName],method='nnet')
+model_glm<-train(trainSet[,predictors],trainSet[,outcomeName],method='glm')
