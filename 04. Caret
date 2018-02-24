@@ -1,0 +1,62 @@
+#Now lets try some other packages from https://www.r-bloggers.com/a-brief-tour-of-the-trees-and-forests/
+
+#packages needed
+install.packages(c("RANN", "caret", "readr"))
+install.packages("caret", dependencies = c("Depends", "Suggests"))
+
+library(caret)
+library(RANN)
+library(readr)
+
+#Import the Land registry data
+inputdata <- "http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/pp-2016.txt"
+names <- c('Transaction_unique_identifier', 'Price', 'Date_of_Transfer', 'Postcode', 'Property_Type', 'Old_New', 'Duration', 'PAON', 'SAON', 'Street', 'Locality', 'Town_City', 'District', 'County', 'PPDCategory_Type', 'Record_Status_monthly_file_only')
+landregistry <- read_csv(inputdata, col_names=names)
+
+#Remove the hour and minutes from the date variable and create a month variable
+landregistry$Transfer_Date <- as.Date(as.POSIXct(landregistry$Date_of_Transfer,tz="", "%Y-%m-%d %H:%M"))
+landregistry$Transfer_Month <- as.Date(paste((format(landregistry$Transfer_Date, "%Y-%m")),"-01",sep=""))
+landregistry$Transfer_Year <- as.numeric(format(landregistry$Transfer_Date, "%Y"))
+
+#Remove rows where the value is over £1M, these will skew the model later
+landregistry <- landregistry[!(landregistry$Price>1000000),]
+
+#I want just sales from 2016
+sales2016 <- landregistry[ which(landregistry$Transfer_Year==2016), ]
+
+#Keep only the variables I want to use
+columns <- c('Price', 'Transfer_Month', 'Property_Type', 'Old_New', 'Duration', 'Town_City', 'District', 'County')
+Initialdata <- subset(sales2016,select=columns)
+Initialdata <- Initialdata[1:50000,]
+
+#Define the variable FiveHundredPlus
+Initialdata$FiveHundredPlus <- ifelse(Initialdata$Price<=500000, 1, 0)
+
+#Converting every categorical variable to numerical using dummy variables
+dmy <- dummyVars(" ~ .", data = Initialdata, fullRank = T)
+Initialdata_transformed <- data.frame(predict(dmy, newdata = Initialdata))
+
+#Checking the structure of transformed train file
+str(Initialdata_transformed)
+
+#Converting the dependent variable to categorical
+Initialdata_transformed$FiveHundredPlus <-as.factor(Initialdata_transformed$FiveHundredPlus)
+
+#Spliting training set into two parts based on outcome: 75% and 25%
+index <- createDataPartition(Initialdata_transformed$FiveHundredPlus, p=0.75, list=FALSE)
+trainSet <- Initialdata_transformed [ index,]
+testSet <- Initialdata_transformed [-index,]
+
+
+#Feature selection using rfe in caret
+control <- rfeControl(functions = rfFuncs,
+                      method = "repeatedcv",
+                      repeats = 3,
+                      verbose = FALSE)
+
+outcomeName<-'FiveHundredPlus'
+
+predictors<-names(trainSet)[!names(trainSet) %in% outcomeName]
+FiveHundredPlus_Profile <- rfe(trainSet[,predictors], trainSet[,outcomeName],
+                               rfeControl = control)
+FiveHundredPlus_Profile
