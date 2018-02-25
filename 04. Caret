@@ -1,12 +1,11 @@
 #packages needed
-install.packages(c("RANN", "caret", "readr", "e1071", "randomForest"))
+install.packages(c("RANN", "caret", "readr", "doParallel"))
 install.packages("caret", dependencies = c("Depends", "Suggests"))
 
 library(caret)
 library(RANN)
 library(readr)
-#library(e1071)
-#library(randomForest)
+library(doParallel)
 
 #Import the Land registry data
 inputdata <- "http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/pp-2016.txt"
@@ -21,13 +20,12 @@ landregistry$Transfer_Year <- as.numeric(format(landregistry$Transfer_Date, "%Y"
 #Remove rows where the value is over £1M, these will skew the model later
 landregistry <- landregistry[!(landregistry$Price>1000000),]
 
-#I want just sales from 2016
-sales2016 <- landregistry[ which(landregistry$Transfer_Year==2016), ]
+#I want just sales from Jan 2016
+sales <- landregistry[ which(landregistry$Transfer_Month=="2016-01-01"), ]
 
 #Keep only the variables I want to use
-columns <- c('Price', 'Transfer_Month', 'Property_Type', 'Old_New', 'Duration', 'Town_City', 'District', 'County')
-Initialdata <- subset(sales2016,select=columns)
-#Initialdata <- Initialdata[1:50000,]
+columns <- c('Price', 'Property_Type', 'Old_New', 'Duration', 'Town_City', 'District', 'County')
+Initialdata <- subset(sales,select=columns)
 
 #Define the variable FiveHundredPlus
 Initialdata$FiveHundredPlus <- ifelse(Initialdata$Price<=500000, 1, 0)
@@ -47,25 +45,8 @@ index <- createDataPartition(Initialdata_transformed$FiveHundredPlus, p=0.75, li
 trainSet <- Initialdata_transformed [ index,]
 testSet <- Initialdata_transformed [-index,]
 
-
-#Feature selection using rfe in caret
-control <- rfeControl(functions = rfFuncs,
-                      method = "repeatedcv",
-                      repeats = 3,
-                      verbose = FALSE)
-
 outcomeName<-'FiveHundredPlus'
 
-predictors<-names(trainSet)[!names(trainSet) %in% outcomeName]
-FiveHundredPlus_Profile <- rfe(trainSet[,predictors], trainSet[,outcomeName],
-                               rfeControl = control)
-FiveHundredPlus_Profile
+#Try applying a glm 
+model_glm<-train(trainSet,trainSet[,outcomeName],method='glm')
 
-#keep only the top 5 predictors
-predictors<-c()
-
-#Apply a selection of differnt models
-model_gbm<-train(trainSet[,predictors],trainSet[,outcomeName],method='gbm')
-model_rf<-train(trainSet[,predictors],trainSet[,outcomeName],method='rf')
-model_nnet<-train(trainSet[,predictors],trainSet[,outcomeName],method='nnet')
-model_glm<-train(trainSet[,predictors],trainSet[,outcomeName],method='glm')
