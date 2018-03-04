@@ -24,7 +24,7 @@ landregistry <- landregistry[!(landregistry$Price>1000000),]
 sales <- landregistry[ which(landregistry$Transfer_Month=="2016-01-01"), ]
 
 #Keep only the variables I want to use
-columns <- c('Price', 'Property_Type', 'Old_New', 'Duration', 'Town_City', 'District', 'County')
+columns <- c('Price', 'Property_Type', 'Old_New', 'Duration', 'County')
 Initialdata <- subset(sales,select=columns)
 
 #Define the variable FiveHundredPlus
@@ -46,7 +46,31 @@ trainSet <- Initialdata_transformed [ index,]
 testSet <- Initialdata_transformed [-index,]
 
 outcomeName<-'FiveHundredPlus'
+drops <- c("Price", "FiveHundredPlus")
+predictors<-colnames(trainSet)[!(colnames(trainSet) %in% drops)]
 
-#Try applying a glm 
-model_glm<-train(trainSet,trainSet[,outcomeName],method='glm')
+#Try applying some models
+model_gbm<-train(trainSet[,predictors],trainSet[,outcomeName],method='gbm')
+model_rf<-train(trainSet[,predictors],trainSet[,outcomeName],method='rf')
+model_nnet<-train(trainSet[,predictors],trainSet[,outcomeName],method='nnet')
+model_glm<-train(trainSet[,predictors],trainSet[,outcomeName],method='glm')
 
+#Apply the models to the test data
+pred_gbm  <- predict(model_gbm, testSet, type = "raw")
+pred_rf   <- predict(model_rf, testSet, type = "raw")
+pred_nnet <- predict(model_nnet, testSet, type = "raw")
+pred_glm  <- predict(model_glm, testSet, type = "raw")
+
+#Create confusion matricies
+conf_gbm  <- table(testSet$FiveHundredPlus, pred_gbm)
+conf_rf   <- table(testSet$FiveHundredPlus, pred_rf)
+conf_nnet <- table(testSet$FiveHundredPlus, pred_nnet)
+conf_glm  <- table(testSet$FiveHundredPlus, pred_glm)
+
+# Calculate the accuracy
+acc_gbm  <- sum(diag(conf_gbm))/sum(conf_gbm)
+acc_rf   <- sum(diag(conf_rf))/sum(conf_rf)
+acc_nnet <- sum(diag(conf_nnet))/sum(conf_nnet)
+acc_glm  <- sum(diag(conf_glm))/sum(conf_glm)
+
+Acc <- c(acc_gbm, acc_rf, acc_nnet, acc_glm)
