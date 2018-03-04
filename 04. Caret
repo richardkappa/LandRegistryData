@@ -74,3 +74,39 @@ acc_nnet <- sum(diag(conf_nnet))/sum(conf_nnet)
 acc_glm  <- sum(diag(conf_glm))/sum(conf_glm)
 
 Acc <- c(acc_gbm, acc_rf, acc_nnet, acc_glm)
+
+#Calcuate probabilities
+pred_p_gbm  <- predict(model_gbm, testSet, type = "prob")[,2]
+pred_p_rf   <- predict(model_rf, testSet, type = "prob")[,2]
+pred_p_nnet <- predict(model_nnet, testSet, type = "prob")[,2]
+pred_p_glm  <- predict(model_glm, testSet, type = "prob")[,2]
+
+# Make prediction objects for the ROC curves
+predict_gbm  <- prediction(pred_p_gbm, testSet$FiveHundredPlus)
+predict_rf   <- prediction(pred_p_rf, testSet$FiveHundredPlus)
+predict_nnet <- prediction(pred_p_nnet, testSet$FiveHundredPlus)
+predict_glm  <- prediction(pred_p_glm, testSet$FiveHundredPlus)
+
+#Calculate the performance
+perf_gbm  <- performance(predict_gbm, "tpr", "fpr")
+perf_rf   <- performance(predict_rf, "tpr", "fpr")
+perf_nnet <- performance(predict_nnet, "tpr", "fpr")
+perf_glm  <- performance(predict_glm, "tpr", "fpr")
+
+#Calculate the area under the curves
+auc_gbm  <- performance(predict_gbm,"auc")@y.values[[1]]
+auc_rf   <- performance(predict_rf,"auc")@y.values[[1]]
+auc_nnet <- performance(predict_nnet,"auc")@y.values[[1]]
+auc_glm  <- performance(predict_glm,"auc")@y.values[[1]]
+
+AUC <- c(auc_gbm, auc_rf, auc_nnet, auc_glm)
+
+#Plot the ROC curve
+plot(perf_gbm)
+plot(perf_rf, add = TRUE, colorize = TRUE)
+plot(perf_nnet, add = TRUE, colorize = TRUE)
+plot(perf_glm, add = TRUE, colorize = TRUE)
+
+#Print the different performance metric vectors
+print(Acc)
+print(AUC)
